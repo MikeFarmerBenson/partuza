@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
@@ -33,13 +34,25 @@ class PartuzaOAuthLookupService extends OAuthLookupService {
    * @param string $userId
    * @return SecurityToken or null
    */
-  public function getSecurityToken($oauthRequest, $appUrl, $userId, $contentType) {
+  public function getSecurityToken($oauthRequest, $appUrl, $userId) {
     try {
+      // backward port of shindig's trunk way of dealing with content types
+      $acceptedContentTypes = array('application/atom+xml', 'application/xml', 'application/json');
+      $contentType = false;
+      if (isset($_SERVER['CONTENT_TYPE'])) {
+        // normalize things like "application/json; charset=utf-8" to application/json
+        foreach ($acceptedContentTypes as $type) {
+          if (strpos($_SERVER['CONTENT_TYPE'], $type) !== false) {
+            $contentType = $type;
+            $_SERVER['CONTENT_TYPE'] = $contentType;
+            break;
+          }
+        }
+      }
       // Incomming requests with a POST body can either have an oauth_body_hash, or include the post body in the main oauth_signature; Also for either of these to be valid
       // we need to make sure it has a proper the content-type; So the below checks if it's a post, if so if the content-type is supported, and if so deals with the 2
       // post body signature styles
       $includeRawPost = false;
-      $acceptedContentTypes = array('application/atom+xml', 'application/xml', 'application/json');
       if (isset($GLOBALS['HTTP_RAW_POST_DATA']) && ! empty($GLOBALS['HTTP_RAW_POST_DATA'])) {
         if (! in_array($contentType, $acceptedContentTypes)) {
           // This is rather double (since the ApiServlet does the same check), but for us to do a meaninful processing of a post body, this has to be correct
