@@ -23,29 +23,29 @@ class BlobExpiredException extends Exception {
 
 /**
  * This class provides basic binary blob encryption and decryption, for use with the security token
- * 
+ *
  */
 class BasicBlobCrypter extends BlobCrypter {
   //FIXME make this compatible with the java's blobcrypter
-  
+
 
   // Labels for key derivation
   private $CIPHER_KEY_LABEL = 0;
   private $HMAC_KEY_LABEL = 1;
-  
+
   /** Key used for time stamp (in seconds) of data */
   public $TIMESTAMP_KEY = "t";
-  
+
   /** minimum length of master key */
   public $MASTER_KEY_MIN_LEN = 16;
-  
+
   /** allow three minutes for clock skew */
   private $CLOCK_SKEW_ALLOWANCE = 180;
-  
+
   private $UTF8 = "UTF-8";
-  
-  private $cipherKey;
-  private $hmacKey;
+
+  protected $cipherKey;
+  protected $hmacKey;
   protected $allowPlaintextToken;
 
   public function __construct() {
@@ -83,7 +83,7 @@ class BasicBlobCrypter extends BlobCrypter {
    */
   public function unwrap($in, $maxAgeSec) {
     //TODO remove this once we have a better way to generate a fake token in the example files
-    if ($this->allowPlaintextToken && count(explode(':', $in)) == 6) {
+    if ($this->allowPlaintextToken && count(explode(':', $in)) == 7) {
       $data = explode(":", $in);
       $out = array();
       $out['o'] = $data[0];
@@ -94,8 +94,13 @@ class BasicBlobCrypter extends BlobCrypter {
       $out['m'] = $data[5];
     } else {
       $bin = base64_decode($in);
-      $cipherText = substr($bin, 0, strlen($bin) - Crypto::$HMAC_SHA1_LEN);
-      $hmac = substr($bin, strlen($cipherText));
+      if (is_callable('mb_substr')) {
+        $cipherText = mb_substr($bin, 0, - Crypto::$HMAC_SHA1_LEN, 'latin1');
+        $hmac = mb_substr($bin, mb_strlen($cipherText, 'latin1'), Crypto::$HMAC_SHA1_LEN, 'latin1');
+      } else {
+        $cipherText = substr($bin, 0, - Crypto::$HMAC_SHA1_LEN);
+        $hmac = substr($bin, strlen($cipherText));
+      }
       Crypto::hmacSha1Verify($this->hmacKey, $cipherText, $hmac);
       if (! function_exists('mcrypt_module_open') && $this->allowPlaintextToken) {
         $plain = base64_decode($cipherText);
@@ -110,12 +115,7 @@ class BasicBlobCrypter extends BlobCrypter {
 
   private function deserialize($plain) {
     $map = array();
-    $items = split("[&=]", $plain);
-    for ($i = 0; $i < count($items);) {
-      $key = urldecode($items[$i ++]);
-      $value = urldecode($items[$i ++]);
-      $map[$key] = $value;
-    }
+    parse_str($plain, $map);
     return $map;
   }
 
