@@ -62,7 +62,9 @@ class PartuzaOAuthLookupService extends OAuthLookupService {
         // if $includeRawPost has been set above, we need to include the post body in the main oauth_signature
         $oauthRequest->set_parameter($includeRawPost, '');
       }
-      if (! isset($oauthRequest->parameters['oauth_token'])) {
+
+      $oauth_token=$oauthRequest->get_parameters('oauth_token');
+      if (! isset($oauth_token)) {
         // No oauth_token means this is a 2 legged OAuth request
         $ret = $this->verify2LeggedOAuth($oauthRequest, $userId, $appUrl, $dataStore);
       } else {
